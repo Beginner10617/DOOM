@@ -123,43 +123,65 @@ void Game::render()
         float rayDirX = cos(rayAngle);
         float rayDirY = sin(rayAngle);
 
-        float distanceToWall = 0.0f;
-        const float stepSize = 0.05f;      
-        const float maxDepth = 20.0f;
+        // Map tile the ray starts in
+        int mapX = (int)playerPosition.first;
+        int mapY = (int)playerPosition.second;
+
+        // Length of ray from one x-side to next x-side
+        float deltaDistX = (rayDirX == 0) ? 1e30 : fabs(1.0f / rayDirX);
+        // Length of ray from one y-side to next y-side
+        float deltaDistY = (rayDirY == 0) ? 1e30 : fabs(1.0f / rayDirY);
+
+        int stepX, stepY;
+        float sideDistX, sideDistY;
+
+        // Step direction and initial side distances
+        if (rayDirX < 0) {
+            stepX = -1;
+            sideDistX = (playerPosition.first - mapX) * deltaDistX;
+        } else {
+            stepX = 1;
+            sideDistX = (mapX + 1.0f - playerPosition.first) * deltaDistX;
+        }
+
+        if (rayDirY < 0) {
+            stepY = -1;
+            sideDistY = (playerPosition.second - mapY) * deltaDistY;
+        } else {
+            stepY = 1;
+            sideDistY = (mapY + 1.0f - playerPosition.second) * deltaDistY;
+        }
 
         bool hitWall = false;
-        bool boundaryHit = false;
+        int hitSide = 0; // 0 = vertical hit, 1 = horizontal hit
 
-        while (!hitWall && distanceToWall < maxDepth)
+        while (!hitWall)
         {
-            distanceToWall += stepSize;
-
-            int testX = (int)(playerPosition.first + rayDirX * distanceToWall);
-            int testY = (int)(playerPosition.second + rayDirY * distanceToWall);
-
-            // Out of bounds is treated as wall
-            if (testX < 0 || testX >= Map[0].size() ||
-                testY < 0 || testY >= Map.size())
-            {
-                hitWall = true;
-                distanceToWall = maxDepth;
+            // Jump to next grid square
+            if (sideDistX < sideDistY) {
+                sideDistX += deltaDistX;
+                mapX += stepX;
+                hitSide = 0;
+            } else {
+                sideDistY += deltaDistY;
+                mapY += stepY;
+                hitSide = 1;
             }
-            else
-            {
-                // Wall hit
-                if (Map[testY][testX] > 0)
-                {
-                    hitWall = true;
-                }
+
+            // Check if the ray hit a wall
+            if (Map[mapY][mapX] > 0) {
+                hitWall = true;
             }
         }
 
-        // Remove fisheye distortion
-        float delta = rayAngle - playerAngle;
-        if (delta > M_PI) delta -= 2 * M_PI;
-        if (delta < -M_PI) delta += 2 * M_PI;
+        // Distance to wall = distance to side where hit happened
+        float distanceToWall;
+        if (hitSide == 0)
+            distanceToWall = sideDistX - deltaDistX;
+        else
+            distanceToWall = sideDistY - deltaDistY;
 
-        float correctedDistance = distanceToWall * cos(delta);
+        float correctedDistance = distanceToWall * cos(rayAngle - playerAngle);
 
         // Calculate wall height
         int lineHeight = (int)(ScreenHeightWidth.second / correctedDistance);
