@@ -7,7 +7,7 @@ int main(int argc, char* argv[]) {
     game->init("My Game", 100, 100, 800, 600, false);
     game->placePlayerAt(3, 3, 0.0f);
     game->loadMapDataFromFile("map.txt");
-
+    game->addWallTexture("Textures/zzwolf11.png");
     const int FPS = 60;
     const float frameDelay = 1000.0f / FPS;
 

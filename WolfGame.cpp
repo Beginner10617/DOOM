@@ -13,6 +13,11 @@ void Game::init(const char *title, int xpos, int ypos, int width, int height, bo
 {
     if(SDL_Init(SDL_INIT_EVERYTHING) == 0){
         int flags = 0;
+        if (!(IMG_Init(IMG_INIT_PNG | IMG_INIT_JPG) & (IMG_INIT_PNG | IMG_INIT_JPG))) {
+            SDL_Log("IMG init error: %s", IMG_GetError());
+            isRunning = false;
+            return;
+        }
         if(fullscreen){
             flags = SDL_WINDOW_FULLSCREEN;
         }
@@ -180,8 +185,15 @@ void Game::render()
             distanceToWall = sideDistX - deltaDistX;
         else
             distanceToWall = sideDistY - deltaDistY;
-
-        float correctedDistance = distanceToWall * cos(rayAngle - playerAngle);
+        float hitX = playerPosition.first  + rayDirX * distanceToWall;
+        float hitY = playerPosition.second + rayDirY * distanceToWall;
+        float wallX;
+        if (hitSide == 0)
+            wallX = hitY - floor(hitY);
+        else
+            wallX = hitX - floor(hitX);
+        float deltaAngle = rayAngle - playerAngle;
+        float correctedDistance = distanceToWall * cos(deltaAngle);
 
         // Calculate wall height
         int lineHeight = (int)(ScreenHeightWidth.second / correctedDistance);
@@ -191,10 +203,19 @@ void Game::render()
         if (drawStart < 0) drawStart = 0;
         if (drawEnd >= ScreenHeightWidth.second) drawEnd = ScreenHeightWidth.second - 1;
 
-        // Wall Shading
-        Uint8 shade = (Uint8)(255 * exp(-distanceToWall * 0.15f));
-        SDL_SetRenderDrawColor(renderer, shade, shade, shade, 255);
-        SDL_RenderDrawLine(renderer, ray, drawStart, ray, drawEnd);
+        // Wall Texture
+        int texId = Map[mapY][mapX] - 1;
+        int imgWidth = textureWidths[texId], imgHeight = textureHeights[texId];
+        SDL_QueryTexture(wallTextures[texId], NULL, NULL, &imgWidth, &imgHeight);
+        int texX = (int)(wallX * imgWidth);
+        if(hitSide == 0 && rayDirX > 0) texX = imgWidth - texX - 1;
+        if(hitSide == 1 && rayDirY < 0) texX = imgWidth - texX - 1;
+        if(texX < 0) texX = 0;
+        if(texX >= imgWidth) texX = imgWidth - 1;
+        SDL_Rect srcRect = { texX, 0, 1, imgHeight };
+        SDL_Rect destRect = { ray, drawStart, 1, drawEnd - drawStart };
+        SDL_RenderCopy(renderer, wallTextures[texId], &srcRect, &destRect);
+
     }
 
     SDL_RenderPresent(renderer);  
@@ -218,6 +239,24 @@ void Game::loadMapDataFromFile(const char* filename)
         Map.push_back(row);
     }
 }
+void Game::placePlayerAt(int x, int y, float angle) {
+    playerPosition = {static_cast<double>(x), static_cast<double>(y)};
+    playerAngle = angle;
+}
+
+void Game::addWallTexture(const char* filePath) {
+    SDL_Texture* texture = IMG_LoadTexture(renderer, filePath);
+    if (!texture) {
+        std::cerr << "Failed to load texture: " << filePath << " Error: " << IMG_GetError() << std::endl;
+        return;
+    }
+    wallTextures.push_back(texture);
+    int width, height;
+    SDL_QueryTexture(texture, NULL, NULL, &width, &height);
+    textureWidths.push_back(width);
+    textureHeights.push_back(height);
+}
+
 void Game::clean()
 {
     SDL_DestroyRenderer(renderer);

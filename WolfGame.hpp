@@ -1,6 +1,7 @@
 #ifndef Game_hpp
 #define Game_hpp
 #include "SDL.h"
+#include "SDL_image.h"
 #include <stdio.h>
 #include <vector>
 #include <utility>
@@ -17,10 +18,8 @@ public:
     bool running(){return isRunning;}
     void loadMapDataFromFile(const char* filename);
     void loadColorConfigFromFile(const char* filename);
-    void placePlayerAt(int x, int y, float angle) {
-        playerPosition = {static_cast<double>(x), static_cast<double>(y)};
-        playerAngle = angle;
-    }
+    void placePlayerAt(int x, int y, float angle);
+    void addWallTexture(const char* filePath);
 private:
     bool isRunning;
     SDL_Window *window;
@@ -31,6 +30,9 @@ private:
     std::pair<double, double> playerMoveDirection = {0.0, 0.0};
     std::vector<std::vector<int>> Map;
     std::vector<SDL_Color> colorConfig;
+    std::vector<SDL_Texture*> wallTextures;
+    std::vector<int> textureWidths;
+    std::vector<int> textureHeights;
 };
 
 #endif
