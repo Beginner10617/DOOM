@@ -93,6 +93,34 @@ void Game::handleEvents()
 
     if (keystate[SDL_SCANCODE_RIGHT])
         playerAngle += rotationSensitivity;
+
+    // Door interaction (Space to open/close)
+    if (keystate[SDL_SCANCODE_SPACE])
+    {
+        int px = (int)(playerPosition.first + playerSquareSize);
+        int py = (int)(playerPosition.second);
+
+        // tile directly ahead of player
+        int tx = px + (int)round(cos(playerAngle));
+        int ty = py + (int)round(sin(playerAngle));
+
+        auto key = std::make_pair(ty, tx);
+        if (doors.count(key)) {
+            Door &d = doors[key];
+
+            // locked?
+            if (d.locked) {
+                if (!playerHasKey(d.keyType)) {
+                    return;
+                }
+            }
+
+            // toggle
+            if (d.openAmount == 0.0f)
+                d.opening = true;
+        }
+    }
+
 }
 
 void Game::update(float deltaTime)
@@ -110,12 +138,29 @@ void Game::update(float deltaTime)
     // Collision detection and position update
     float newX = playerPosition.first + playerMoveDirection.first * playerSpeed * deltaTime;
     float newY = playerPosition.second + playerMoveDirection.second * playerSpeed * deltaTime;
-
-    if (Map[(int)playerPosition.second][(int)(newX + playerSquareSize * (newX>playerPosition.first?1:-1))] == 0)
+    int tileX = Map[(int)playerPosition.second][(int)(newX + playerSquareSize * (newX>playerPosition.first?1:-1))];
+    int tileY = Map[(int)(newY + playerSquareSize * (newY>playerPosition.second?1:-1))][(int)playerPosition.first];
+    if (tileX == 0 || (isDoor(tileX) && doors[{(int)playerPosition.second, (int)(newX + playerSquareSize * (newX>playerPosition.first?1:-1))}].openAmount > 0.5f))
         playerPosition.first = newX;
 
-    if (Map[(int)(newY + playerSquareSize * (newY>playerPosition.second?1:-1))][(int)playerPosition.first] == 0)
+    if (tileY == 0 || (isDoor(tileY) && doors[{(int)(newY + playerSquareSize * (newY>playerPosition.second?1:-1)), (int)playerPosition.first}].openAmount > 0.5f))
         playerPosition.second = newY;
+
+    // Update doors
+    for (auto &p : doors)
+    {
+        Door &d = p.second;
+
+        if (d.opening) {
+            d.openAmount += 1.5f * deltaTime;
+            if (d.openAmount >= 1.0f) {
+                d.openAmount = 1.0f;
+                d.opening = false;
+            }
+        }
+
+
+    }
 
 }
 
@@ -190,9 +235,43 @@ void Game::render()
             }
 
             // Check if the ray hit a wall
-            if (Map[mapY][mapX] > 0) {
+            // Edit this to include opening doors ---------------------->
+            if (Map[mapY][mapX] > 0 && !isDoor(Map[mapY][mapX])) {
                 hitWall = true;
             }
+            else if (isDoor(Map[mapY][mapX]))
+            {
+                float open = doors[{mapY, mapX}].openAmount;  // 0..1
+
+                // --- compute hit distance ---
+                float hitDist = (hitSide == 0 ? sideDistX - deltaDistX
+                                            : sideDistY - deltaDistY);
+
+                // --- exact float hit position ---
+                float hitX = playerPosition.first  + rayDirX * hitDist;
+                float hitY = playerPosition.second + rayDirY * hitDist;
+
+                // --- local coords inside tile (0..1) ---
+                float localX = hitX - floor(hitX);
+                float localY = hitY - floor(hitY);
+
+                bool blocks = false;
+
+                if (hitSide == 0) {
+                    // vertical → opening affects Y movement
+                    // door blocks if hit Y is beyond open amount
+                    blocks = (localY >= open);
+                } else {
+                    // horizontal → opening affects X movement
+                    blocks = (localX >= open);
+                }
+
+                if (blocks)
+                    hitWall = true;      // ray stops here
+                else
+                    hitWall = false;     // ray passes through (door is open)
+            }
+
         }
 
         // Distance to wall = distance to side where hit happened
@@ -201,6 +280,7 @@ void Game::render()
             distanceToWall = sideDistX - deltaDistX;
         else
             distanceToWall = sideDistY - deltaDistY;
+
         float hitX = playerPosition.first  + rayDirX * distanceToWall;
         float hitY = playerPosition.second + rayDirY * distanceToWall;
         float wallX;
@@ -223,15 +303,28 @@ void Game::render()
         int texId = Map[mapY][mapX] - 1;
         int imgWidth = wallTextureWidths[texId], imgHeight = wallTextureHeights[texId];
         SDL_QueryTexture(wallTextures[texId], NULL, NULL, &imgWidth, &imgHeight);
-        int texX = (int)(wallX * imgWidth);
-        if(hitSide == 0 && rayDirX > 0) texX = imgWidth - texX - 1;
-        if(hitSide == 1 && rayDirY < 0) texX = imgWidth - texX - 1;
-        if(texX < 0) texX = 0;
-        if(texX >= imgWidth) texX = imgWidth - 1;
-        SDL_Rect srcRect = { texX, 0, 1, imgHeight };
-        SDL_Rect destRect = { ray, drawStart, 1, drawEnd - drawStart };
-        SDL_RenderCopy(renderer, wallTextures[texId], &srcRect, &destRect);
-
+          
+        if(!isDoor(texId+1)){
+            int texX = (int)(wallX * imgWidth);
+            if(hitSide == 0 && rayDirX > 0) texX = imgWidth - texX - 1;
+            if(hitSide == 1 && rayDirY < 0) texX = imgWidth - texX - 1;
+            if(texX < 0) texX = 0;
+            if(texX >= imgWidth) texX = imgWidth - 1; 
+            SDL_Rect srcRect = { texX, 0, 1, imgHeight };
+            SDL_Rect destRect = { ray, drawStart, 1, drawEnd - drawStart };
+            SDL_RenderCopy(renderer, wallTextures[texId], &srcRect, &destRect);
+        }
+        else if(wallX>doors[{mapY, mapX}].openAmount){
+            wallX -= doors[{mapY, mapX}].openAmount;
+            int texX = (int)(wallX * imgWidth);
+            if(hitSide == 0 && rayDirX > 0) texX = imgWidth - texX - 1;
+            if(hitSide == 1 && rayDirY < 0) texX = imgWidth - texX - 1;
+            if(texX < 0) texX = 0;
+            if(texX >= imgWidth) texX = imgWidth - 1; 
+            SDL_Rect srcRect = { texX, 0, 1, imgHeight };
+            SDL_Rect destRect = { ray, drawStart, 1, drawEnd - drawStart };
+            SDL_RenderCopy(renderer, wallTextures[texId], &srcRect, &destRect);
+        }
         // Draw floor texture
         if (floorTextures.size() > 0) {
             int floorScreenStart = drawEnd; // start drawing floor below the wall
@@ -278,7 +371,7 @@ void Game::render()
         }
     }
 
-    SDL_RenderPresent(renderer);  
+    SDL_RenderPresent(renderer); 
 }
 void Game::loadMapDataFromFile(const char* filename)
 {
@@ -290,8 +383,20 @@ void Game::loadMapDataFromFile(const char* filename)
     Map.clear();
     std::string line;
     while (std::getline(file, line)) {
-        std::vector<int> row;
+        std::vector<int> row; 
         for (char& ch : line) {
+            if (ch >= '6' && ch <= '9') {
+                int t = ch - '0';
+                Door d;
+                d.openAmount = 0.0f;
+                d.opening = false;
+                if (t == 6) { d.locked = false; d.keyType = 0; }
+                if (t == 7) { d.locked = true;  d.keyType = 1; }  // blue key
+                if (t == 8) { d.locked = true;  d.keyType = 2; }  // red key
+                if (t == 9) { d.locked = true;  d.keyType = 3; }  // gold key
+
+                doors[{Map.size(), row.size()}] = d;
+            }
             if (ch >= '0' && ch <= '9') {
                 row.push_back(ch - '0');
             }
@@ -341,6 +446,18 @@ void Game::addCeilingTexture(const char* filePath) {
 }
 void Game::printPlayerPosition(){
     std::cout << "Player Position: (" << playerPosition.first << ", " << playerPosition.second << ")\n";
+}
+bool Game::isDoor(int tile) {
+    return tile >= 6 && tile <= 9;
+}
+bool Game::playerHasKey(int keyType) {
+    if(keyType == 0) return true; // no key needed
+    for (const Door& key : keysHeld) {
+        if (key.keyType == keyType) {
+            return true;
+        }
+    }
+    return false;
 }
 void Game::clean()
 {
