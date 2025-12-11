@@ -30,6 +30,7 @@ private:
     SDL_Renderer *renderer;
     float playerAngle, FOV=45.0f, playerSpeed=2.0f, rotationSensitivity=0.05f;
     float playerHeight=0.5f, mouseSensitivity=0.002f;
+    float playerSquareSize=1.0f;
     std::pair<double, double> playerPosition;
     std::pair<int, int> ScreenHeightWidth;
     std::pair<double, double> playerMoveDirection = {0.0, 0.0};

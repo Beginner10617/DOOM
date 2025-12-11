@@ -107,15 +107,14 @@ void Game::update(float deltaTime)
         playerMoveDirection.second /= length;
     }
 
-
     // Collision detection and position update
     float newX = playerPosition.first + playerMoveDirection.first * playerSpeed * deltaTime;
     float newY = playerPosition.second + playerMoveDirection.second * playerSpeed * deltaTime;
 
-    if (Map[(int)playerPosition.second][(int)newX] == 0)
+    if (Map[(int)playerPosition.second][(int)(newX + playerSquareSize * (newX>playerPosition.first?1:-1))] == 0)
         playerPosition.first = newX;
 
-    if (Map[(int)newY][(int)playerPosition.first] == 0)
+    if (Map[(int)(newY + playerSquareSize * (newY>playerPosition.second?1:-1))][(int)playerPosition.first] == 0)
         playerPosition.second = newY;
 
 }
