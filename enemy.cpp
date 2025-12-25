@@ -43,10 +43,33 @@ float Enemy::get_angle(){
 }
 
 void Enemy::_process(float deltaTime) {
-    fracTime += deltaTime;
-    while (fracTime > DurationPerSprite) {
-        moveNextFrame();
-        fracTime -= DurationPerSprite;
+    if(state != ENEMY_IDLE){
+        fracTime += deltaTime;
+        while (fracTime > DurationPerSprite) {
+            moveNextFrame();
+            fracTime -= DurationPerSprite;
+        }
+    }
+    else{
+        fracTime = 0.0f;
+        frameIndex = 0;
+        currentFrame = Animations[state][0];
+    }
+    if (walking) {
+        float dx = destinationOfWalk.first  - position.first;
+        float dy = destinationOfWalk.second - position.second;
+
+        float distSq = dx*dx + dy*dy;
+        float step   = moveSpeed * deltaTime;
+
+        if (distSq <= step*step) {
+            position = destinationOfWalk;
+            walking = false;
+            setAnimState(ENEMY_IDLE);
+        } else {
+            position.first  += step * std::cos(angle);
+            position.second -= step * std::sin(angle);
+        }
     }
 }
 
@@ -68,6 +91,7 @@ void Enemy::init(){
         {ENEMY_WALK, {1, 2, 3, 4}},
 });
     state = ENEMY_IDLE;
+    walkTo(20.0f, 5.0f);
 }
 
 void Enemy::updateDirnNumWrt(std::pair<float, float> pos) {
@@ -104,12 +128,23 @@ int Enemy::get_dirn_num(){
     return directionNum;
 }
 
-void Enemy::moveNextFrame(){
-    if(Animations[state].empty())
-        std::cout<<"Animation has no frames\n";
-    currentFrame = Animations[state][(currentFrame+1)%Animations[state].size()];
+void Enemy::moveNextFrame() {
+    auto &frames = Animations[state];
+    if (frames.empty()) return;
+
+    frameIndex = (frameIndex + 1) % frames.size();
+    currentFrame = frames[frameIndex];
 }
 
 float Enemy::get_size(){
     return sze;
+}
+
+void Enemy::walkTo(float x, float y){
+    destinationOfWalk = std::make_pair(x, y);
+    float dx = x  - position.first;
+    float dy = y - position.second;
+    angle = std::atan2(-dy, dx);
+    setAnimState(ENEMY_WALK);
+    walking = true;
 }

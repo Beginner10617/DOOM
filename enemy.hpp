@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 #define PI 3.1415926535f
-
+// HERE ANGLES ARE TAKEN POSITIVE ANTI-CLOCKWISE FROM TOP CONTRARY TO THE PLAYER
 enum EnemyState {
     ENEMY_IDLE,
     ENEMY_WALK
@@ -19,11 +19,11 @@ void load_enemy_textures(
 
 class Enemy {
     EnemyState state;
-    std::pair<float, float> position;
-    float angle, sze=1.0f;
-    float DurationPerSprite = 1.0f;
-    float fracTime = 0.0f;
-    int currentFrame = 0;
+    std::pair<float, float> position, destinationOfWalk;
+    float angle, sze=1.0f, moveSpeed = 1.0f;
+    float DurationPerSprite = 0.25f, fracTime = 0.0f;
+    bool walking = false;
+    int currentFrame = 0, frameIndex = 0;
     int directionNum;
     std::map<EnemyState, std::vector<int>> Animations;
 public:
@@ -40,4 +40,5 @@ public:
     int get_current_frame();
     int get_dirn_num();
     void moveNextFrame();
+    void walkTo(float x, float y);
 };

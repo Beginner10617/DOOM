@@ -10,6 +10,7 @@ int main(int argc, char* argv[]) {
     game->loadMapDataFromFile("testMap.txt");
     game->loadAllTextures("textureMapping.txt");
     game->loadEnemyTextures("enemy.txt");
+
     const int FPS = 60;
     const float frameDelay = 1000.0f / FPS;
 
