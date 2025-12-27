@@ -54,6 +54,9 @@ void Enemy::_process(float deltaTime, const std::pair<float, float>& playerPosit
                     stateLocked = false;
                     thinkTimer = 0.0f;
                     fracTime = 0.0f;
+                    if(state == ENEMY_SHOOT){
+                        damageThisFrame = rollEnemyDamage();
+                    }
                 }
             }
         }
@@ -183,13 +186,15 @@ void Enemy::think(const std::pair<float, float>& playerPosition){
         justTookDamage = false;
         return;
     }
-    bool inAttackRange = (
-        std::hypot(
+    float dist = std::hypot(
             playerPosition.first  - position.first,
             playerPosition.second - position.second
-        ) <= attackRange
+        );
+    bool inAttackRange = (
+        dist <= attackRange
     );
-    if(canSeePlayer && inAttackRange && randomAttackChance()){
+    int chanceDivisor = computeEnemyHitChance(dist);
+    if(canSeePlayer && inAttackRange && randomAttackChance(chanceDivisor)){
         setAnimState(ENEMY_SHOOT, true);
         // Randomness to decide hit/miss and apply damage to player
         return;
@@ -251,8 +256,21 @@ bool Enemy::canEnterPain(){
     return false;
 }
 
-bool Enemy::randomAttackChance(){
-    if(rand() % attackChanceDivisor == 0)
+bool Enemy::randomAttackChance(int chanceDivisor){
+    if(rand() % chanceDivisor == 0)
         return true;
     return false;
+}
+int Enemy::computeEnemyHitChance(float dist) {
+    const float MIN_DIST = 3.0f;
+    const float MAX_DIST = attackRange + 1.0f;
+
+    dist = std::clamp(dist, MIN_DIST, MAX_DIST);
+    float t = (dist - MIN_DIST) / (MAX_DIST - MIN_DIST);
+
+    // Quadratic falloff (feels very Wolf-like)
+    return (int) attackChanceDivisor * (1.0f - t * t);
+}
+int Enemy::rollEnemyDamage() {
+    return baseDamage + (rand() % damageSpread) - (damageSpread / 2);
 }

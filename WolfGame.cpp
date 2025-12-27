@@ -178,7 +178,6 @@ void Game::update(float deltaTime)
         }
     }
 
-
     // Update enemies
     for(const std::unique_ptr<Enemy>& e : enemies){
         e->_process(deltaTime, playerPosition);
@@ -186,7 +185,14 @@ void Game::update(float deltaTime)
         e->updateCanSeePlayer(
             rayCastEnemyToPlayer(*e, playerPosition)
         );
+        int dmg = e->getDamageThisFrame();
+        e->clearDamageThisFrame();
+        if(rayCastEnemyToPlayer(*e, playerPosition) && dmg > 0){
+            health -= dmg;
+            if(health < 0) health = 0;
+        }
     }
+    std::cout << "Player Health: " << health << std::endl;
 }
 
 void Game::render()

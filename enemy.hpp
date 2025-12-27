@@ -29,10 +29,11 @@ class Enemy {
     bool justTookDamage = false;
     bool isDead = false;
     bool stateLocked = false;
+    int damageThisFrame = 0;
 
     // combat stats
     int health = 100;
-    int baseDamage = 10;
+    int baseDamage = 10, damageSpread = 5;
     int attackChanceDivisor = 2;
     int accuracyDivisor = 6;   // 1 in 6 chance 
     int painChanceDivisor = 4; // 1 in 4 chance
@@ -64,8 +65,12 @@ public:
     void walkTo(float x, float y);
 
     bool canEnterPain();
-    bool randomAttackChance();
+    bool randomAttackChance(int);
     void think(const std::pair<float, float>& pos);
     void updateCanSeePlayer(bool);
     void takeDamage();
+    int computeEnemyHitChance(float dist);
+    int rollEnemyDamage();
+    int getDamageThisFrame() const { return damageThisFrame; }
+    void clearDamageThisFrame() { damageThisFrame = 0; }
 };
