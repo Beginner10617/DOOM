@@ -21,15 +21,16 @@ static std::string to_lower(std::string s) {
 Enemy::Enemy(float x, float y, float theta)
     : position(x, y), angle(theta) {}
 
-std::pair<float, float> Enemy::get_position(){
+std::pair<float, float> Enemy::get_position() const{
     return position;
 }
 
-float Enemy::get_angle(){
+float Enemy::get_angle() const{
     return angle;
 }
 
-void Enemy::_process(float deltaTime, std::pair<float, float> playerPosition) {
+void Enemy::_process(float deltaTime, const std::pair<float, float>& playerPosition) {
+    updateDirnNumWrt(playerPosition);
     if (!stateLocked)
         thinkTimer += deltaTime;
 
@@ -52,7 +53,6 @@ void Enemy::_process(float deltaTime, std::pair<float, float> playerPosition) {
                 if(!walking){   // Pain or shooting end
                     stateLocked = false;
                     thinkTimer = 0.0f;
-                    setAnimState(ENEMY_IDLE, false);
                     fracTime = 0.0f;
                 }
             }
@@ -111,7 +111,7 @@ void Enemy::init(){
     setAnimState(ENEMY_IDLE, false);
 }
 
-void Enemy::updateDirnNumWrt(std::pair<float, float> pos) {
+void Enemy::updateDirnNumWrt(const std::pair<float, float>& pos) {
     // Vector from enemy to target
     float dx = pos.first  - position.first;
     float dy = pos.second - position.second;
@@ -137,11 +137,11 @@ void Enemy::updateDirnNumWrt(std::pair<float, float> pos) {
     directionNum = dir; 
 }
 
-int Enemy::get_current_frame(){
+int Enemy::get_current_frame() const{
     return currentFrame;
 }
 
-int Enemy::get_dirn_num(){
+int Enemy::get_dirn_num() const{
     return directionNum;
 }
 
@@ -153,7 +153,7 @@ void Enemy::moveNextFrame() {
     currentFrame = frames[frameIndex];
 }
 
-float Enemy::get_size(){
+float Enemy::get_size() const{
     return sze;
 }
 
@@ -171,7 +171,7 @@ void Enemy::walkTo(float x, float y){ // for testing purposes
     walking = true;
 }
 
-void Enemy::think(std::pair<float, float> playerPosition){
+void Enemy::think(const std::pair<float, float>& playerPosition){
     if(stateLocked)
         return;
     if(health <= 0 && !isDead){
@@ -183,6 +183,12 @@ void Enemy::think(std::pair<float, float> playerPosition){
         justTookDamage = false;
         return;
     }
+    bool inAttackRange = (
+        std::hypot(
+            playerPosition.first  - position.first,
+            playerPosition.second - position.second
+        ) <= attackRange
+    );
     if(canSeePlayer && inAttackRange && randomAttackChance()){
         setAnimState(ENEMY_SHOOT, true);
         // Randomness to decide hit/miss and apply damage to player
@@ -195,7 +201,7 @@ void Enemy::think(std::pair<float, float> playerPosition){
             float dy = playerPosition.second - position.second;
             float dist = std::hypot(dx, dy);
 
-            if (dist < 1.0f)
+            if (dist < 3.0f)
                 return;
 
             // Normalize

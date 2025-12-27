@@ -76,6 +76,11 @@ private:
     float fireCooldown = 0.0f;
     float fireRate = 0.2f;
 
+    bool rayCastEnemyToPlayer(
+        const Enemy& enemy,
+        const std::pair<float,float>& playerPos
+    );
+
 };
 
 #endif

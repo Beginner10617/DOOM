@@ -182,8 +182,10 @@ void Game::update(float deltaTime)
     // Update enemies
     for(const std::unique_ptr<Enemy>& e : enemies){
         e->_process(deltaTime, playerPosition);
-        e->updateDirnNumWrt(playerPosition);
         // Update canSeePlayer
+        e->updateCanSeePlayer(
+            rayCastEnemyToPlayer(*e, playerPosition)
+        );
     }
 }
 
@@ -763,8 +765,82 @@ bool Game::collidesWithEnemy(float x, float y) {
     return false;
 }
 
+bool Game::rayCastEnemyToPlayer(
+    const Enemy& enemy,
+    const std::pair<float,float>& playerPos
+) {
+    float ex = enemy.get_position().first;
+    float ey = enemy.get_position().second;
+
+    float px = playerPos.first;
+    float py = playerPos.second;
+
+    // Direction vector
+    float dx = px - ex;
+    float dy = py - ey;
+
+    float rayLength = std::hypot(dx, dy);
+    if (rayLength < 0.0001f)
+        return true;
+
+    dx /= rayLength;
+    dy /= rayLength;
+
+    // Current grid square
+    int mapX = int(std::floor(ex));
+    int mapY = int(std::floor(ey));
+
+    int targetX = int(std::floor(px));
+    int targetY = int(std::floor(py));
+
+    // Ray step direction
+    int stepX = (dx < 0) ? -1 : 1;
+    int stepY = (dy < 0) ? -1 : 1;
+
+    // Distance to first grid boundary
+    float sideDistX;
+    float sideDistY;
+
+    float deltaDistX = (dx == 0) ? 1e30f : std::abs(1.0f / dx);
+    float deltaDistY = (dy == 0) ? 1e30f : std::abs(1.0f / dy);
+
+    if (dx < 0)
+        sideDistX = (ex - mapX) * deltaDistX;
+    else
+        sideDistX = (mapX + 1.0f - ex) * deltaDistX;
+
+    if (dy < 0)
+        sideDistY = (ey - mapY) * deltaDistY;
+    else
+        sideDistY = (mapY + 1.0f - ey) * deltaDistY;
+
+    // DDA loop
+    while (true) {
+        if (sideDistX < sideDistY) {
+            sideDistX += deltaDistX;
+            mapX += stepX;
+        } else {
+            sideDistY += deltaDistY;
+            mapY += stepY;
+        }
+
+        // Bounds check
+        if (mapY < 0 || mapY >= (int)Map.size() ||
+            mapX < 0 || mapX >= (int)Map[0].size())
+            return false;
+
+        // Hit wall
+        if (Map[mapY][mapX] != 0)
+            return false;
+
+        // Reached player cell
+        if (mapX == targetX && mapY == targetY)
+            return true;
+    }
+}
+
 /*
 TODO:
-UPDATE CANSEEPLAYER, INATTACKRANGE, ALERTED
+UPDATE ALERTED
 APPLY DAMAGES TO PLAYER AND ENEMIES
 */
